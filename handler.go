@@ -11,7 +11,6 @@ import (
 	"github.com/noPerfection/log"
 	clientSyncReplier "github.com/noPerfection/protocol/client/sync_replier"
 	"github.com/noPerfection/protocol/handler/base"
-	handlerConfig "github.com/noPerfection/protocol/handler/config"
 	"github.com/noPerfection/protocol/handler/control"
 	"github.com/noPerfection/protocol/handler/replier"
 	"github.com/noPerfection/protocol/message"
@@ -20,7 +19,7 @@ import (
 
 const (
 	TopologyHandlerCategory       = "service_topology" // handler category
-	TopologySocketType            = handlerConfig.ReplierType
+	TopologySocketType            = base.ReplierType
 	IsRunning                     = "is-running"
 	IsServiceRunning              = "is-service-running"
 	StartService                  = "start-service"
@@ -54,15 +53,9 @@ var _ TopologyInterface = (*Handler)(nil)
 
 var topologyMutationMu sync.Mutex
 
-// HandlerConfig returns the handler configuration for the topology endpoint.
-// Then use it as the handler's config with the SetConfig method.
-func HandlerConfig() *handlerConfig.Handler {
-	return handlerConfig.New(
-		TopologySocketType,
-		TopologyHandlerCategory,
-		TopologyHandlerCategory,
-		0,
-	)
+// HandlerEndpoint returns the inproc endpoint for the topology handler.
+func HandlerEndpoint() message.Endpoint {
+	return message.NewEndpoint(TopologyHandlerCategory, 0)
 }
 
 // NewHandler loads app config, ensures the independent topology service entry exists,
@@ -87,7 +80,7 @@ func NewHandler(configMushroomURL string, substrates ...mushroom.Substrate) (*Ha
 		return nil, fmt.Errorf("log.New('%s'): %w", TopologyHandlerCategory, err)
 	}
 
-	handler.SetConfig(HandlerConfig())
+	handler.SetEndpoint(HandlerEndpoint())
 	err = handler.SetLogger(logger)
 	if err != nil {
 		return nil, fmt.Errorf("handler.SetLogger: %w", err)
@@ -1008,8 +1001,8 @@ func (h *Handler) isTopologyAlreadyRunning() bool {
 }
 
 func (h *Handler) restartExistingTopologyHandler() bool {
-	controlConfig := control.CreateInternalConfig(HandlerConfig())
-	client, err := clientSyncReplier.NewClient(controlConfig.Id, controlConfig.Port)
+	controlEndpoint := control.NewInternalControlEndpoint(HandlerEndpoint())
+	client, err := clientSyncReplier.NewClient(controlEndpoint.Id, controlEndpoint.Port)
 	if err != nil {
 		return false
 	}

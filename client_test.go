@@ -49,8 +49,8 @@ func (test *TestClientSuite) SetupTest() {
 	// Start the handler
 	s().NoError(test.depHandler.Start())
 
-	controlConfig := control.CreateInternalConfig(HandlerConfig())
-	test.depHandlerManager, err = sync_replier.NewClient(controlConfig.Id, controlConfig.Port)
+	controlEndpoint := control.NewInternalControlEndpoint(HandlerEndpoint())
+	test.depHandlerManager, err = sync_replier.NewClient(controlEndpoint.Id, controlEndpoint.Port)
 	s().NoError(err)
 
 	// wait a bit for closing

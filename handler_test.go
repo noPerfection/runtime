@@ -51,8 +51,8 @@ func (test *TestHandlerSuite) SetupTest() {
 	// Start the handler
 	s().NoError(test.depHandler.Start())
 
-	controlConfig := control.CreateInternalConfig(HandlerConfig())
-	test.depHandlerManager, err = sync_replier.NewClient(controlConfig.Id, controlConfig.Port)
+	controlEndpoint := control.NewInternalControlEndpoint(HandlerEndpoint())
+	test.depHandlerManager, err = sync_replier.NewClient(controlEndpoint.Id, controlEndpoint.Port)
 	s().NoError(err)
 
 	// wait a bit for closing
@@ -64,8 +64,8 @@ func (test *TestHandlerSuite) SetupTest() {
 	test.id = "test-manager"
 	test.parent = "parent"
 
-	handlerCfg := HandlerConfig()
-	socket, err := client.New(handlerCfg.Id, handlerCfg.Port, client.HandlerType(handlerCfg.Type))
+	handlerEndpoint := HandlerEndpoint()
+	socket, err := client.New(handlerEndpoint.Id, handlerEndpoint.Port, client.ReplierType)
 	s().NoError(err)
 
 	test.client = socket
@@ -239,8 +239,8 @@ func testHandlerService(name string) config.Service {
 func closeTopologyHandler(t *testing.T) {
 	t.Helper()
 
-	controlConfig := control.CreateInternalConfig(HandlerConfig())
-	manager, err := sync_replier.NewClient(controlConfig.Id, controlConfig.Port)
+	controlEndpoint := control.NewInternalControlEndpoint(HandlerEndpoint())
+	manager, err := sync_replier.NewClient(controlEndpoint.Id, controlEndpoint.Port)
 	if err != nil {
 		t.Fatalf("sync_replier.NewClient: %v", err)
 	}

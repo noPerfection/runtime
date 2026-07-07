@@ -676,7 +676,7 @@ func (a *NoPerfection) serviceNamedTargetURL(parent string, serviceName string) 
 	if err != nil {
 		return "", fmt.Errorf("ChildResource(%q): %w", serviceName, err)
 	}
-	return targetHypha.String(), nil
+	return targetHypha.AsDereference().String(), nil
 }
 
 // Snapshot returns the topology JSON document as a compact JSON string.
@@ -976,6 +976,10 @@ func (a *NoPerfection) SetService(record Service, parent string) error {
 	if err != nil {
 		return err
 	}
+
+	// Dereference restoration is handled by Inoculate itself (inoculateLocal reads
+	// the current raw value, compares with Fruit-resolved values, and restores any
+	// dereference strings the caller did not intentionally change).
 	if err := a.mycelium.Inoculate(targetURL, serviceMap); err != nil {
 		return fmt.Errorf("mycelium.Inoculate(%q): %w", targetURL, err)
 	}

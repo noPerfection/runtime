@@ -20,7 +20,7 @@ func newHandler(appConfig *config.NoPerfection) (*Handler, error) {
 		return nil, fmt.Errorf("log.New('%s'): %w", TopologyHandlerCategory, err)
 	}
 
-	handler.SetConfig(HandlerConfig())
+	handler.SetEndpoint(HandlerEndpoint())
 	if err := handler.SetLogger(logger); err != nil {
 		return nil, fmt.Errorf("handler.SetLogger: %w", err)
 	}

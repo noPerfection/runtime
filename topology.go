@@ -478,7 +478,7 @@ func (tp *Topology) StartService(serviceConfig config.Service) (string, error) {
 
 	running, err := node.IsServiceRunning(serviceConfig.Name)
 	if err == nil && running {
-		return "", nil
+		return "", fmt.Errorf("service('%s') is already running", serviceConfig.Name)
 	}
 
 	return tp.startServiceConfig(serviceConfig)
