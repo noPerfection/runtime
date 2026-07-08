@@ -2,12 +2,14 @@
 package topology
 
 import (
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
 	"time"
 
 	"github.com/noPerfection/log"
+	"github.com/noPerfection/protocol/message"
 	"github.com/noPerfection/topology/config"
 )
 
@@ -329,7 +331,11 @@ func (tp *Topology) isServiceRunningWithTimeout(serviceName string, service conf
 
 	running, err := node.IsServiceRunning(serviceName)
 	if err != nil {
-		return false, nil
+		if errors.Is(err, message.RequestTimeoutError) {
+			// Timeout means the manager endpoint is unreachable — service not running.
+			return false, nil
+		}
+		return false, err
 	}
 
 	return running, nil
