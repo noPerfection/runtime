@@ -50,7 +50,10 @@ type NodeInterface interface {
 	// Dereference Mushroom URL:
 	//
 	//	running, err := tp.IsServiceRunning("*pkg:$?var=services[name:worker]")
-	IsServiceRunning(mushroomURL string) (bool, error)
+	// IsServiceRunning checks whether a service is running.
+	// When attempts > 1 the config is reloaded before every probe so that
+	// public keys written to disk by newly started services become visible.
+	IsServiceRunning(mushroomURL string, attempts ...int) (bool, error)
 }
 
 // TopologyInterface is implemented by the dependency topology.
@@ -196,6 +199,10 @@ type TopologyInterface interface {
 	// Rollback restores the topology from a prior Snapshot by replacing the
 	// entire module document.
 	Rollback(snapshot string) error
+
+	// Reload re-reads the topology JSON file from disk, replacing the in-memory
+	// state.
+	Reload() error
 }
 
 // DefaultTimeout is the default time to wait before considering the message is not delivered.
@@ -209,6 +216,11 @@ const DefaultCategory = config.DefaultCategory
 const ipcManagerProbeTimeout = 100 * time.Millisecond
 
 const ServiceManagerCategory = config.ServiceManagerCategory
+
+// ManagerPublicKeyParam is the service Parameters key under which the manager's
+// CURVE public key is stored by allowServiceManager. Used by newServiceManagerClient
+// to configure client-side CURVE before connecting to a remote manager.
+const ManagerPublicKeyParam = "public-key"
 
 type Process struct {
 	config *config.Service
@@ -446,6 +458,12 @@ func (tp *Topology) newServiceManagerClient(service *config.Service) (*NodeClien
 	node, err := newNodeClient(independentHandler.Endpoint)
 	if err != nil {
 		return nil, fmt.Errorf("NewNode: %w", err)
+	}
+
+	if service.Parameters != nil {
+		if pubKey, ok := service.Parameters[ManagerPublicKeyParam].(string); ok && pubKey != "" {
+			node.socket.Secure(pubKey)
+		}
 	}
 
 	return node, nil

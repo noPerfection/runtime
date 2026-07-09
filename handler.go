@@ -38,6 +38,7 @@ const (
 	InprocessDepNumber            = "inprocess-dep-number"
 	Snapshot                      = "snapshot"
 	Rollback                      = "rollback"
+	Reload                        = "reload"
 )
 
 // Handler acts as the router from other app processes to the topology.
@@ -188,20 +189,37 @@ func (h *Handler) StartService(mushroomURL string) (string, error) {
 
 // IsServiceRunning checks a dependency service before the topology handler is
 // started.
-func (h *Handler) IsServiceRunning(mushroomURL string) (bool, error) {
-
+func (h *Handler) IsServiceRunning(mushroomURL string, attempts ...int) (bool, error) {
 	if err := h.requireNotStarted(); err != nil {
 		return false, err
 	}
+	return h.isServiceRunning(mushroomURL, attempts...)
+}
 
-	service, err := h.service(mushroomURL)
-	if err != nil {
-		return false, err
+func (h *Handler) isServiceRunning(mushroomURL string, attempts ...int) (bool, error) {
+	n := 1
+	if len(attempts) > 0 && attempts[0] > 1 {
+		n = attempts[0]
 	}
-	h.mu.Lock()
-	defer h.mu.Unlock()
-
-	return h.topology.IsServiceRunning(service)
+	reload := n > 1
+	for i := 0; i < n; i++ {
+		if reload {
+			h.mu.Lock()
+			_ = h.config.Reload()
+			h.mu.Unlock()
+		}
+		h.mu.Lock()
+		service, err := h.service(mushroomURL)
+		h.mu.Unlock()
+		if err != nil {
+			return false, err
+		}
+		running, err := h.topology.IsServiceRunning(service)
+		if err == nil && running {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // StopService stops a dependency service before the topology handler is started.
@@ -373,6 +391,23 @@ func (h *Handler) Rollback(snapshot string) error {
 	defer topologyMutationMu.Unlock()
 
 	return h.config.Rollback(snapshot)
+}
+
+// Reload re-reads the topology JSON file from disk, replacing the in-memory
+// state.  Call this after IPC dep services have finished starting so that any
+// public keys they persisted directly to the file become visible.
+func (h *Handler) Reload() error {
+	h.mu.Lock()
+	defer h.mu.Unlock()
+
+	if h.config == nil {
+		return fmt.Errorf("nil config")
+	}
+
+	topologyMutationMu.Lock()
+	defer topologyMutationMu.Unlock()
+
+	return h.config.Reload()
 }
 
 func (h *Handler) addService(record config.Service, parent ...string) error {
@@ -577,24 +612,21 @@ func (h *Handler) onIsRunning(req message.RequestInterface) message.ReplyInterfa
 
 // onIsServiceRunning checks whether the dependency is running or not.
 // Requires 'service' — a service name or dereference Mushroom URL.
+// Optional 'attempts' int: when > 1, the config is reloaded before each probe
+// and the check is repeated that many times.
 func (h *Handler) onIsServiceRunning(req message.RequestInterface) message.ReplyInterface {
 	mushroomURL, err := req.RouteParameters().StringValue(Service)
 	if err != nil {
 		return req.Fail(fmt.Sprintf("req.Parameters.GetString('service'): %v", err))
 	}
 
-	service, err := h.service(mushroomURL)
+	attemptsU, _ := req.RouteParameters().Uint64Value("attempts")
+	running, err := h.isServiceRunning(mushroomURL, int(attemptsU))
 	if err != nil {
-		return req.Fail(fmt.Sprintf("h.service(%q): %v", mushroomURL, err))
+		return req.Fail(fmt.Sprintf("h.isServiceRunning: %v", err))
 	}
 
-	running, err := h.topology.IsServiceRunning(service)
-	if err != nil {
-		return req.Fail(fmt.Sprintf("h.topology.IsServiceRunning: %v", err))
-	}
-
-	params := datatype.New().Set("running", running)
-	return req.Ok(params)
+	return req.Ok(datatype.New().Set("running", running))
 }
 
 // onStartService starts the dependency service.
@@ -905,6 +937,18 @@ func (h *Handler) onRollback(req message.RequestInterface) message.ReplyInterfac
 	return req.Ok(datatype.New())
 }
 
+// onReload re-reads the topology JSON file from disk.
+func (h *Handler) onReload(req message.RequestInterface) message.ReplyInterface {
+	topologyMutationMu.Lock()
+	defer topologyMutationMu.Unlock()
+
+	if err := h.config.Reload(); err != nil {
+		return req.Fail(fmt.Sprintf("h.config.Reload: %v", err))
+	}
+
+	return req.Ok(datatype.New())
+}
+
 // Start starts the dependency handler with the available operations.
 func (h *Handler) Start() error {
 	if h == nil {
@@ -978,6 +1022,9 @@ func (h *Handler) Start() error {
 	}
 	if err := h.handler.Route(Rollback, h.onRollback); err != nil {
 		return fmt.Errorf("h.handler.Route('%s'): %v", Rollback, err)
+	}
+	if err := h.handler.Route(Reload, h.onReload); err != nil {
+		return fmt.Errorf("h.handler.Route('%s'): %v", Reload, err)
 	}
 
 	if err := h.handler.Start(); err != nil {

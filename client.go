@@ -427,29 +427,33 @@ func (c *Client) StartService(mushroomURL string) (string, error) {
 	return id, nil
 }
 
-// IsServiceRunning checks is the service running or not.
-func (c *Client) IsServiceRunning(mushroomURL string) (bool, error) {
+// IsServiceRunning checks whether the service is running.
+// When attempts > 1 the config is reloaded before every probe so that public
+// keys written to disk by newly started services become visible.
+func (c *Client) IsServiceRunning(mushroomURL string, attempts ...int) (bool, error) {
+	params := datatype.New().
+		Set("service", mushroomURL)
+	if len(attempts) > 0 && attempts[0] > 1 {
+		params.Set("attempts", attempts[0])
+	}
 	req := message.Request{
-		Command: IsServiceRunning,
-		Parameters: datatype.New().
-			Set("service", mushroomURL),
+		Command:    IsServiceRunning,
+		Parameters: params,
 	}
 
 	reply, err := c.socket.Request(&req)
 	if err != nil {
 		return false, fmt.Errorf("socket.Request('%s'): %w", IsServiceRunning, err)
 	}
-
 	if !reply.IsOK() {
 		return false, fmt.Errorf("reply.Message: %s", reply.ErrorMessage())
 	}
 
-	res, err := reply.ReplyParameters().BoolValue("running")
+	running, err := reply.ReplyParameters().BoolValue("running")
 	if err != nil {
-		return false, fmt.Errorf("reply.Parameters.GetBoolean('installed'): %w", err)
+		return false, fmt.Errorf("reply.Parameters.BoolValue('running'): %w", err)
 	}
-
-	return res, nil
+	return running, nil
 }
 
 // StopService stops the running dependency service.
@@ -595,6 +599,25 @@ func (c *Client) Rollback(snapshot string) error {
 	reply, err := c.socket.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Request('%s'): %w", Rollback, err)
+	}
+
+	if !reply.IsOK() {
+		return fmt.Errorf("reply.Message: %s", reply.ErrorMessage())
+	}
+
+	return nil
+}
+
+// Reload re-reads the topology JSON file from disk.
+func (c *Client) Reload() error {
+	req := message.Request{
+		Command:    Reload,
+		Parameters: datatype.New(),
+	}
+
+	reply, err := c.socket.Request(&req)
+	if err != nil {
+		return fmt.Errorf("socket.Request('%s'): %w", Reload, err)
 	}
 
 	if !reply.IsOK() {

@@ -23,7 +23,9 @@ const ModuleRootMushroomPath = "pkg:$#$"
 // NoPerfection is the configuration of the entire application.
 // Consists the supported services.
 type NoPerfection struct {
-	mycelium *json_substrate.Mycelium
+	mycelium    *json_substrate.Mycelium
+	mushroomURL string
+	substrates  []mushroom.Substrate
 }
 
 // toHypha converts mushroomURL (link or dereference) into a full github.com/ahmetson/mushroom.Hypha
@@ -215,7 +217,9 @@ func Load(mushroomURL string, substrates ...mushroom.Substrate) (NoPerfection, e
 	}
 
 	appConfig := NoPerfection{
-		mycelium: mycelium,
+		mycelium:    mycelium,
+		mushroomURL: mushroomURL,
+		substrates:  substrates,
 	}
 
 	if loaded {
@@ -225,6 +229,19 @@ func Load(mushroomURL string, substrates ...mushroom.Substrate) (NoPerfection, e
 	}
 
 	return appConfig, nil
+}
+
+// Reload re-reads the topology from the JSON file on disk, replacing the
+// in-memory state.  Call this after all IPC dep services have started so
+// that any public keys they wrote directly to the file (when they could not
+// reach this service's topology handler) become visible in memory.
+func (a *NoPerfection) Reload() error {
+	fresh, err := Load(a.mushroomURL, a.substrates...)
+	if err != nil {
+		return fmt.Errorf("Reload: %w", err)
+	}
+	a.mycelium = fresh.mycelium
+	return nil
 }
 
 // resolveLoadMyceliumURL maps a Load argument to a json mycelium link and filesystem path.
