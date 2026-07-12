@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/noPerfection/log"
-	"github.com/noPerfection/protocol/handler/replier"
+	protocolHandler "github.com/noPerfection/protocol/handler"
 	"github.com/noPerfection/topology/config"
 )
 
@@ -13,7 +13,7 @@ func newHandler(appConfig *config.NoPerfection) (*Handler, error) {
 		return nil, fmt.Errorf("app config is nil, call config.Load() first")
 	}
 
-	handler := replier.New()
+	handler := protocolHandler.NewReplier()
 
 	logger, err := log.New(TopologyHandlerCategory, true)
 	if err != nil {

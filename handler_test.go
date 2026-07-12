@@ -9,8 +9,8 @@ import (
 	"github.com/noPerfection/datatype"
 	"github.com/noPerfection/log"
 	"github.com/noPerfection/protocol/client"
-	"github.com/noPerfection/protocol/client/sync_replier"
-	"github.com/noPerfection/protocol/handler/control"
+	protocolClient "github.com/noPerfection/protocol/client"
+	protocolHandler "github.com/noPerfection/protocol/handler"
 	"github.com/noPerfection/protocol/message"
 	config "github.com/noPerfection/topology/config"
 
@@ -25,7 +25,7 @@ type TestHandlerSuite struct {
 
 	logger            *log.Logger
 	depHandler        *Handler // the manager to test
-	depHandlerManager *sync_replier.Client
+	depHandlerManager *protocolClient.SyncReplierClient
 	url               string // dependency source code
 	id                string // the id of the dependency
 	parent            string // the service name that dependency should connect back to
@@ -51,8 +51,8 @@ func (test *TestHandlerSuite) SetupTest() {
 	// Start the handler
 	s().NoError(test.depHandler.Start())
 
-	controlEndpoint := control.NewInternalControlEndpoint(HandlerEndpoint())
-	test.depHandlerManager, err = sync_replier.NewClient(controlEndpoint.Id, controlEndpoint.Port)
+	controlEndpoint := protocolHandler.NewInternalControlEndpoint(HandlerEndpoint())
+	test.depHandlerManager, err = protocolClient.NewSyncReplier(controlEndpoint.Id, controlEndpoint.Port)
 	s().NoError(err)
 
 	// wait a bit for closing
@@ -79,7 +79,7 @@ func (test *TestHandlerSuite) TearDownTest() {
 	s().NoError(test.client.Close())
 
 	_, err := test.depHandlerManager.Request(&message.Request{
-		Command:    control.HandlerClose,
+		Command:    protocolHandler.HandlerClose,
 		Parameters: datatype.New(),
 	})
 	s().NoError(err)
@@ -239,19 +239,19 @@ func testHandlerService(name string) config.Service {
 func closeTopologyHandler(t *testing.T) {
 	t.Helper()
 
-	controlEndpoint := control.NewInternalControlEndpoint(HandlerEndpoint())
-	manager, err := sync_replier.NewClient(controlEndpoint.Id, controlEndpoint.Port)
+	controlEndpoint := protocolHandler.NewInternalControlEndpoint(HandlerEndpoint())
+	manager, err := protocolClient.NewSyncReplier(controlEndpoint.Id, controlEndpoint.Port)
 	if err != nil {
-		t.Fatalf("sync_replier.NewClient: %v", err)
+		t.Fatalf("protocolClient.NewSyncReplier: %v", err)
 	}
 	defer manager.Close()
 
 	_, err = manager.Request(&message.Request{
-		Command:    control.HandlerClose,
+		Command:    protocolHandler.HandlerClose,
 		Parameters: datatype.New(),
 	})
 	if err != nil {
-		t.Fatalf("control.HandlerClose: %v", err)
+		t.Fatalf("protocolHandler.HandlerClose: %v", err)
 	}
 
 	time.Sleep(250 * time.Millisecond)

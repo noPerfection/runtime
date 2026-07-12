@@ -9,17 +9,16 @@ import (
 	"github.com/ahmetson/mushroom"
 	"github.com/noPerfection/datatype"
 	"github.com/noPerfection/log"
-	clientSyncReplier "github.com/noPerfection/protocol/client/sync_replier"
-	"github.com/noPerfection/protocol/handler/base"
-	"github.com/noPerfection/protocol/handler/control"
-	"github.com/noPerfection/protocol/handler/replier"
+	protocolClient "github.com/noPerfection/protocol/client"
+	protocolHandler "github.com/noPerfection/protocol/handler"
 	"github.com/noPerfection/protocol/message"
 	"github.com/noPerfection/topology/config"
 )
 
 const (
 	TopologyHandlerCategory       = "service_topology" // handler category
-	TopologySocketType            = base.ReplierType
+	TopologyHandlerMushroomURL    = "pkg:golang/github.com/noPerfection/topology?object=Handler&filepath=handler.go"
+	TopologySocketType            = protocolHandler.ReplierType
 	IsRunning                     = "is-running"
 	IsServiceRunning              = "is-service-running"
 	StartService                  = "start-service"
@@ -43,7 +42,7 @@ const (
 
 // Handler acts as the router from other app processes to the topology.
 type Handler struct {
-	handler  base.Interface // Receive commands
+	handler  protocolHandler.Interface // Receive commands
 	config   *config.NoPerfection
 	topology *Topology // dependency service runtime
 	started  bool
@@ -74,7 +73,8 @@ func NewHandler(configMushroomURL string, substrates ...mushroom.Substrate) (*Ha
 		return nil, fmt.Errorf("config.Load('%s'): %w", configMushroomURL, err)
 	}
 
-	handler := replier.New()
+	handler := protocolHandler.NewReplier()
+	handler.SetMushroomURL(TopologyHandlerMushroomURL)
 
 	logger, err := log.New(TopologyHandlerCategory, true)
 	if err != nil {
@@ -1048,8 +1048,8 @@ func (h *Handler) isTopologyAlreadyRunning() bool {
 }
 
 func (h *Handler) restartExistingTopologyHandler() bool {
-	controlEndpoint := control.NewInternalControlEndpoint(HandlerEndpoint())
-	client, err := clientSyncReplier.NewClient(controlEndpoint.Id, controlEndpoint.Port)
+	controlEndpoint := protocolHandler.NewInternalControlEndpoint(HandlerEndpoint())
+	client, err := protocolClient.NewSyncReplier(controlEndpoint.Id, controlEndpoint.Port)
 	if err != nil {
 		return false
 	}
@@ -1058,7 +1058,7 @@ func (h *Handler) restartExistingTopologyHandler() bool {
 	client.Timeout(50 * time.Millisecond)
 	client.Attempt(2)
 	reply, err := client.Request(&message.Request{
-		Command:    control.HandlerStart,
+		Command:    protocolHandler.HandlerStart,
 		Parameters: datatype.New(),
 	})
 	return err == nil && reply.IsOK()
