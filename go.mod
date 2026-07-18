@@ -3,6 +3,7 @@ module github.com/noPerfection/topology
 go 1.22
 
 require (
+	github.com/ahmetson/mushroom v0.0.0
 	github.com/noPerfection/datatype v0.0.0
 	github.com/noPerfection/log v0.0.0
 	github.com/noPerfection/os v0.0.0
@@ -14,7 +15,6 @@ require (
 )
 
 require (
-	github.com/ahmetson/mushroom v0.0.0 // indirect
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect
 	github.com/charmbracelet/lipgloss v0.8.0 // indirect
 	github.com/charmbracelet/log v0.2.4 // indirect

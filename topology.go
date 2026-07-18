@@ -4,21 +4,22 @@ package topology
 import (
 	"errors"
 	"fmt"
+	"os"
 	"os/exec"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/noPerfection/log"
-	"github.com/noPerfection/protocol/message"
 	"github.com/noPerfection/topology/config"
 )
 
-// NodeInterface starts, stops, and probes dependency services.
+// ServiceLifecycle starts and stops dependency services through the topology.
 //
 // Pass a service name or dereference URL (*pkg:$?var=...). Topology must load
 // the config record, not just resolve a path: Spore fetches the value and Fruit
 // embeds nested links into a full Service (handlers, endpoints, start_command).
-type NodeInterface interface {
+type ServiceLifecycle interface {
 	// StopService stops the given dependency service.
 	//
 	// Symbol:
@@ -40,6 +41,13 @@ type NodeInterface interface {
 	//
 	//	id, err := tp.StartService("*pkg:$?var=services[name:worker]")
 	StartService(mushroomURL string) (string, error)
+}
+
+// NodeInterface is implemented by service managers that probe, start, and stop
+// dependency services. Probes use the manager's own CURVE identity; they are not
+// routed through the topology handler.
+type NodeInterface interface {
+	ServiceLifecycle
 
 	// IsServiceRunning reports whether the dependency service is running.
 	//
@@ -50,19 +58,18 @@ type NodeInterface interface {
 	// Dereference Mushroom URL:
 	//
 	//	running, err := tp.IsServiceRunning("*pkg:$?var=services[name:worker]")
-	// IsServiceRunning checks whether a service is running.
 	// When attempts > 1 the config is reloaded before every probe so that
 	// public keys written to disk by newly started services become visible.
 	IsServiceRunning(mushroomURL string, attempts ...int) (bool, error)
 }
 
-// TopologyInterface is implemented by the dependency topology.
+// TopologyInterface is implemented by the topology handler client.
 //
 // It doesn't have the `Stop` command.
 // Because, stopping must be done by the remote call from other services.
 // Use it if you want to implement your own topology.
 type TopologyInterface interface {
-	NodeInterface
+	ServiceLifecycle
 
 	// Service returns a service configuration resolved by symbol or dereference Mushroom URL.
 	//
@@ -206,21 +213,9 @@ type TopologyInterface interface {
 }
 
 // DefaultTimeout is the default time to wait before considering the message is not delivered.
-// Topology.IsServiceRunning method uses this value before considering the endpoint as not running.
 const DefaultTimeout = time.Second * 5
 
 const rootServicesParent = "*pkg:$?var=services"
-
-const DefaultCategory = config.DefaultCategory
-
-const ipcManagerProbeTimeout = 100 * time.Millisecond
-
-const ServiceManagerCategory = config.ServiceManagerCategory
-
-// ManagerPublicKeyParam is the service Parameters key under which the manager's
-// CURVE public key is stored by allowServiceManager. Used by newServiceManagerClient
-// to configure client-side CURVE before connecting to a remote manager.
-const ManagerPublicKeyParam = "public-key"
 
 type Process struct {
 	config *config.Service
@@ -268,7 +263,7 @@ func serviceQueryURL(name, parent string) string {
 //
 //---------------------------------------------------------------------
 
-// StopService stops the dependency service.
+// StopService stops a locally spawned dependency process, waiting for it to exit.
 func (tp *Topology) StopService(service config.Service) error {
 	if tp == nil {
 		return fmt.Errorf("nil topology")
@@ -281,95 +276,65 @@ func (tp *Topology) StopService(service config.Service) error {
 		return fmt.Errorf("service('%s') is independent service, impossible to stop since you are now using it", serviceName)
 	}
 
-	node, err := tp.newServiceManagerClient(&service)
-	if err != nil {
-		return err
-	}
-	defer node.Close()
-
-	node.Timeout(tp.managerProbeTimeout(service))
-	node.Attempt(2)
-
-	running, err := node.IsServiceRunning(serviceName)
-	if err != nil {
-		return fmt.Errorf("node.IsServiceRunning('%s'): %w", serviceName, err)
-	}
-	if !running {
+	process := tp.processForService(serviceName)
+	if process == nil {
 		return nil
 	}
 
-	process := tp.processForService(serviceName)
-	if err := node.StopService(serviceName); err != nil {
-		if process != nil && tp.waitForProcess(process, tp.timeout*3) == nil {
-			return nil
-		}
-		running, runningErr := tp.isServiceRunningWithTimeout(serviceName, service, tp.managerProbeTimeout(service))
-		if runningErr == nil && !running {
-			return nil
-		}
-		return fmt.Errorf("node.StopService('%s'): %w", serviceName, err)
-	}
-
-	if err := tp.waitForProcess(process, tp.timeout*3); err != nil {
-		return fmt.Errorf("service('%s') is still running after stop", serviceName)
+	if err := tp.stopLocalProcess(process); err != nil {
+		return fmt.Errorf("service('%s') is still running after stop: %w", serviceName, err)
 	}
 	return nil
 }
 
-// IsServiceRunning checks whether the given service is running or not.
-func (tp *Topology) IsServiceRunning(service config.Service) (bool, error) {
+// StopAllSpawnedProcesses terminates every locally tracked dependency process.
+func (tp *Topology) StopAllSpawnedProcesses() error {
 	if tp == nil {
-		return false, fmt.Errorf("nil topology")
-	}
-	if service.Name == "" {
-		return false, fmt.Errorf("service name is empty")
-	}
-	if service.Type == config.IndependentType {
-		return true, nil
+		return nil
 	}
 
-	return tp.isServiceRunningWithTimeout(service.Name, service, tp.managerProbeTimeout(service))
-}
-
-func (tp *Topology) isServiceRunningWithTimeout(serviceName string, service config.Service, timeout time.Duration) (bool, error) {
-	node, err := tp.newServiceManagerClient(&service)
-	if err != nil {
-		return false, err
-	}
-	defer node.Close()
-
-	node.Attempt(1)
-	node.Timeout(timeout)
-
-	running, err := node.IsServiceRunning(serviceName)
-	if err != nil {
-		if errors.Is(err, message.RequestTimeoutError) {
-			// Timeout means the manager endpoint is unreachable — service not running.
-			return false, nil
+	processes := make([]*Process, 0, len(tp.runningProcesses))
+	for _, process := range tp.runningProcesses {
+		if process != nil {
+			processes = append(processes, process)
 		}
-		return false, err
 	}
 
-	return running, nil
+	var stopErr error
+	for _, process := range processes {
+		if err := tp.stopLocalProcess(process); err != nil {
+			stopErr = errors.Join(stopErr, err)
+		}
+	}
+	return stopErr
 }
 
-func (tp *Topology) managerProbeTimeout(service config.Service) time.Duration {
-	managerHandler, err := service.HandlerByCategory(ServiceManagerCategory)
-	if err != nil {
-		return tp.timeout
+func (tp *Topology) stopLocalProcess(process *Process) error {
+	if process == nil {
+		return nil
 	}
-	handler, ok := managerHandler.AsIndependentHandler()
-	if !ok {
-		return tp.timeout
-	}
-	return tp.managerProbeTimeoutForHandler(handler)
-}
 
-func (tp *Topology) managerProbeTimeoutForHandler(handler config.IndependentHandler) time.Duration {
-	if handler.Endpoint.IsIpc() {
-		return ipcManagerProbeTimeout
+	if process.cmd != nil && process.cmd.Process != nil {
+		if err := process.cmd.Process.Signal(syscall.SIGTERM); err != nil && !errors.Is(err, os.ErrProcessDone) {
+			return fmt.Errorf("signal SIGTERM: %w", err)
+		}
 	}
-	return tp.timeout
+
+	waitTimeout := tp.timeout * 3
+	if waitTimeout <= 0 {
+		waitTimeout = DefaultTimeout * 3
+	}
+	if err := tp.waitForProcess(process, waitTimeout); err == nil {
+		return nil
+	}
+
+	if process.cmd != nil && process.cmd.Process != nil {
+		_ = process.cmd.Process.Kill()
+		if killWait := tp.waitForProcess(process, 2*time.Second); killWait != nil {
+			return killWait
+		}
+	}
+	return nil
 }
 
 // OnStop returns a signal through the channel when the process spawned by the Topology stops.
@@ -445,30 +410,6 @@ func (tp *Topology) waitForProcess(process *Process, timeout time.Duration) erro
 	}
 }
 
-func (tp *Topology) newServiceManagerClient(service *config.Service) (*NodeClient, error) {
-	handler, err := service.HandlerByCategory(ServiceManagerCategory)
-	if err != nil {
-		return nil, fmt.Errorf("no manager found in the '%s' service, please set its config", service.Name)
-	}
-
-	independentHandler, ok := handler.AsIndependentHandler()
-	if !ok {
-		return nil, fmt.Errorf("manager handler in '%s' is invalid", service.Name)
-	}
-	node, err := newNodeClient(independentHandler.Endpoint)
-	if err != nil {
-		return nil, fmt.Errorf("NewNode: %w", err)
-	}
-
-	if service.Parameters != nil {
-		if pubKey, ok := service.Parameters[ManagerPublicKeyParam].(string); ok && pubKey != "" {
-			node.socket.Secure(pubKey)
-		}
-	}
-
-	return node, nil
-}
-
 // StartService runs the service start command.
 // If it fails to run, then it will return an error.
 //
@@ -489,20 +430,6 @@ func (tp *Topology) StartService(serviceConfig config.Service) (string, error) {
 	}
 	if len(serviceConfig.StartCommand) == 0 {
 		return "", fmt.Errorf("service('%s') has no start command given", serviceConfig.Name)
-	}
-
-	node, err := tp.newServiceManagerClient(&serviceConfig)
-	if err != nil {
-		return "", err
-	}
-	defer node.Close()
-
-	node.Attempt(1)
-	node.Timeout(tp.managerProbeTimeout(serviceConfig))
-
-	running, err := node.IsServiceRunning(serviceConfig.Name)
-	if err == nil && running {
-		return "", fmt.Errorf("service('%s') is already running", serviceConfig.Name)
 	}
 
 	return tp.startServiceConfig(serviceConfig)
@@ -549,6 +476,7 @@ func (tp *Topology) startServiceConfig(serviceConfig config.Service) (string, er
 	}
 
 	cmd := exec.Command(commandArgs[0], append(commandArgs[1:], args...)...)
+	configureChildProcess(cmd)
 	cmd.Stdout = logger
 	cmd.Stderr = errLogger
 	err = cmd.Start()

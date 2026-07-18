@@ -17,7 +17,7 @@ import (
 
 const (
 	TopologyHandlerCategory       = "service_topology" // handler category
-	TopologyHandlerMushroomURL    = "pkg:golang/github.com/noPerfection/topology?object=Handler&filepath=handler.go"
+	TopologyHandlerMushroomURL    = "pkg:golang/github.com/noPerfection/topology?obj=Handler&filepath=handler.go"
 	TopologySocketType            = protocolHandler.ReplierType
 	IsRunning                     = "is-running"
 	IsServiceRunning              = "is-service-running"
@@ -49,8 +49,6 @@ type Handler struct {
 	mu       sync.Mutex
 }
 
-var _ TopologyInterface = (*Handler)(nil)
-
 var topologyMutationMu sync.Mutex
 
 // HandlerEndpoint returns the inproc endpoint for the topology handler.
@@ -73,8 +71,7 @@ func NewHandler(configMushroomURL string, substrates ...mushroom.Substrate) (*Ha
 		return nil, fmt.Errorf("config.Load('%s'): %w", configMushroomURL, err)
 	}
 
-	handler := protocolHandler.NewReplier()
-	handler.SetMushroomURL(TopologyHandlerMushroomURL)
+	handler := protocolHandler.NewBasicReplier()
 
 	logger, err := log.New(TopologyHandlerCategory, true)
 	if err != nil {
@@ -185,41 +182,6 @@ func (h *Handler) StartService(mushroomURL string) (string, error) {
 	defer h.mu.Unlock()
 
 	return h.topology.StartService(service)
-}
-
-// IsServiceRunning checks a dependency service before the topology handler is
-// started.
-func (h *Handler) IsServiceRunning(mushroomURL string, attempts ...int) (bool, error) {
-	if err := h.requireNotStarted(); err != nil {
-		return false, err
-	}
-	return h.isServiceRunning(mushroomURL, attempts...)
-}
-
-func (h *Handler) isServiceRunning(mushroomURL string, attempts ...int) (bool, error) {
-	n := 1
-	if len(attempts) > 0 && attempts[0] > 1 {
-		n = attempts[0]
-	}
-	reload := n > 1
-	for i := 0; i < n; i++ {
-		if reload {
-			h.mu.Lock()
-			_ = h.config.Reload()
-			h.mu.Unlock()
-		}
-		h.mu.Lock()
-		service, err := h.service(mushroomURL)
-		h.mu.Unlock()
-		if err != nil {
-			return false, err
-		}
-		running, err := h.topology.IsServiceRunning(service)
-		if err == nil && running {
-			return true, nil
-		}
-	}
-	return false, nil
 }
 
 // StopService stops a dependency service before the topology handler is started.
@@ -491,15 +453,11 @@ func (h *Handler) removeService(name string, parent ...string) error {
 	}
 
 	parentURL := resolveParent(parent...)
-	service, err := h.config.GetService(serviceQueryURL(name, parentURL))
+	_, err := h.config.GetService(serviceQueryURL(name, parentURL))
 	if err != nil {
 		return err
 	}
-	running, err := h.topology.IsServiceRunning(service)
-	if err != nil {
-		return err
-	}
-	if running {
+	if h.topology.processForService(name) != nil {
 		return fmt.Errorf("service('%s') is running, please stop it first", name)
 	}
 
@@ -608,25 +566,6 @@ func (h *Handler) services() ([]config.Service, error) {
 
 func (h *Handler) onIsRunning(req message.RequestInterface) message.ReplyInterface {
 	return req.Ok(datatype.New().Set("running", true))
-}
-
-// onIsServiceRunning checks whether the dependency is running or not.
-// Requires 'service' — a service name or dereference Mushroom URL.
-// Optional 'attempts' int: when > 1, the config is reloaded before each probe
-// and the check is repeated that many times.
-func (h *Handler) onIsServiceRunning(req message.RequestInterface) message.ReplyInterface {
-	mushroomURL, err := req.RouteParameters().StringValue(Service)
-	if err != nil {
-		return req.Fail(fmt.Sprintf("req.Parameters.GetString('service'): %v", err))
-	}
-
-	attemptsU, _ := req.RouteParameters().Uint64Value("attempts")
-	running, err := h.isServiceRunning(mushroomURL, int(attemptsU))
-	if err != nil {
-		return req.Fail(fmt.Sprintf("h.isServiceRunning: %v", err))
-	}
-
-	return req.Ok(datatype.New().Set("running", running))
 }
 
 // onStartService starts the dependency service.
@@ -949,6 +888,14 @@ func (h *Handler) onReload(req message.RequestInterface) message.ReplyInterface 
 	return req.Ok(datatype.New())
 }
 
+// StopAllSpawnedProcesses stops every dependency process spawned by this handler.
+func (h *Handler) StopAllSpawnedProcesses() error {
+	if h == nil || h.topology == nil {
+		return nil
+	}
+	return h.topology.StopAllSpawnedProcesses()
+}
+
 // Start starts the dependency handler with the available operations.
 func (h *Handler) Start() error {
 	if h == nil {
@@ -971,9 +918,6 @@ func (h *Handler) Start() error {
 
 	if err := h.handler.Route(IsRunning, h.onIsRunning); err != nil {
 		return fmt.Errorf("h.handler.Route('%s'): %v", IsRunning, err)
-	}
-	if err := h.handler.Route(IsServiceRunning, h.onIsServiceRunning); err != nil {
-		return fmt.Errorf("h.handler.Route('%s'): %v", IsServiceRunning, err)
 	}
 	if err := h.handler.Route(StartService, h.onStartService); err != nil {
 		return fmt.Errorf("h.handler.Route('%s'): %v", StartService, err)
@@ -1042,7 +986,8 @@ func (h *Handler) isTopologyAlreadyRunning() bool {
 	defer client.Close()
 
 	client.Timeout(50 * time.Millisecond)
-	client.Attempt(2)
+	client.Attempt(3)
+	fmt.Println("todo: isTopologyAlreadyRunning attempts 3 but make it 1 in noPerfection/topology/handler.go ")
 	running, err := client.IsRunning()
 	return err == nil && running
 }

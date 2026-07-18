@@ -3,7 +3,6 @@ package topology
 import (
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"github.com/noPerfection/datatype"
 	"github.com/noPerfection/protocol/client"
@@ -12,56 +11,22 @@ import (
 )
 
 type Client struct {
-	socket *client.Socket
-}
-
-// NodeClient is a topology protocol client connected to a service manager handler.
-type NodeClient struct {
-	*Client
+	*client.Socket
 }
 
 var (
-	_ NodeInterface     = (*NodeClient)(nil)
 	_ TopologyInterface = (*Client)(nil)
 )
 
 // NewClient connects to the topology handler endpoint.
 func NewClient() (*Client, error) {
-	return newClient(message.NewEndpoint(TopologyHandlerCategory, 0))
-}
-
-// NewClient connects to the topology handler endpoint.
-func newClient(serviceEndpoint message.Endpoint) (*Client, error) {
-	socket, err := client.New(serviceEndpoint.Id, serviceEndpoint.Port, client.HandlerType(TopologySocketType))
+	endpoint := message.NewEndpoint(TopologyHandlerCategory, 0)
+	socket, err := client.New(endpoint.Id, endpoint.Port, client.HandlerType(TopologySocketType))
 	if err != nil {
 		return nil, fmt.Errorf("client.New: %w", err)
 	}
 
-	return &Client{socket: socket}, nil
-}
-
-// newNodeClient connects to a service manager handler endpoint.
-func newNodeClient(serviceEndpoint message.Endpoint) (*NodeClient, error) {
-	socket, err := client.New(serviceEndpoint.Id, serviceEndpoint.Port, client.SyncReplierType)
-	if err != nil {
-		return nil, fmt.Errorf("client.New: %w", err)
-	}
-
-	return &NodeClient{Client: &Client{socket: socket}}, nil
-}
-
-// Timeout of the client socket.
-func (c *Client) Timeout(duration time.Duration) {
-	c.socket.Timeout(duration)
-}
-
-// Attempt amount for requests.
-func (c *Client) Attempt(attempt uint8) {
-	c.socket.Attempt(attempt)
-}
-
-func (c *Client) Close() error {
-	return c.socket.Close()
+	return &Client{Socket: socket}, nil
 }
 
 // IsRunning checks whether the topology handler endpoint is available.
@@ -71,7 +36,8 @@ func (c *Client) IsRunning() (bool, error) {
 		Parameters: datatype.New(),
 	}
 
-	reply, err := c.socket.Request(&req)
+	fmt.Println("> is running request for is-running")
+	reply, err := c.Request(&req)
 	if err != nil {
 		return false, fmt.Errorf("socket.Request('%s'): %w", IsRunning, err)
 	}
@@ -104,7 +70,7 @@ func (c *Client) Service(mushroomURL string) (config.Service, error) {
 			Set("service", mushroomURL),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return config.Service{}, fmt.Errorf("socket.Request('%s'): %w", Service, err)
 	}
@@ -138,7 +104,7 @@ func (c *Client) Handler(mushroomURL string) (config.Handler, error) {
 			Set("handler", mushroomURL),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return nil, fmt.Errorf("socket.Request('%s'): %w", GetHandler, err)
 	}
@@ -181,7 +147,7 @@ func (c *Client) GetFacade(mushroomURL string, command ...string) (string, error
 		Parameters: params,
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return "", fmt.Errorf("socket.Request('%s'): %w", GetFacade, err)
 	}
@@ -216,7 +182,7 @@ func (c *Client) GetLink(mushroomURL string) (string, error) {
 			Set("link", mushroomURL),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return "", fmt.Errorf("socket.Request('%s'): %w", GetLink, err)
 	}
@@ -240,7 +206,7 @@ func (c *Client) Services() ([]config.Service, error) {
 		Parameters: datatype.New(),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return nil, fmt.Errorf("socket.Request('%s'): %w", Services, err)
 	}
@@ -284,7 +250,7 @@ func (c *Client) AddService(record config.Service, parent ...string) error {
 		Parameters: params,
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Submit('%s'): %w", AddService, err)
 	}
@@ -314,7 +280,7 @@ func (c *Client) SetService(record config.Service, parent ...string) error {
 		Parameters: params,
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Submit('%s'): %w", SetService, err)
 	}
@@ -351,7 +317,7 @@ func (c *Client) SetHandler(record config.Handler, mushroomURL string) error {
 		Parameters: params,
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Submit('%s'): %w", SetHandler, err)
 	}
@@ -381,7 +347,7 @@ func (c *Client) RemoveService(name string, parent ...string) error {
 		Parameters: params,
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Submit('%s'): %w", RemoveService, err)
 	}
@@ -410,7 +376,7 @@ func (c *Client) StartService(mushroomURL string) (string, error) {
 		Parameters: parameters,
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return "", fmt.Errorf("socket.Submit('%s'): %w", StartService, err)
 	}
@@ -425,35 +391,6 @@ func (c *Client) StartService(mushroomURL string) (string, error) {
 	}
 
 	return id, nil
-}
-
-// IsServiceRunning checks whether the service is running.
-// When attempts > 1 the config is reloaded before every probe so that public
-// keys written to disk by newly started services become visible.
-func (c *Client) IsServiceRunning(mushroomURL string, attempts ...int) (bool, error) {
-	params := datatype.New().
-		Set("service", mushroomURL)
-	if len(attempts) > 0 && attempts[0] > 1 {
-		params.Set("attempts", attempts[0])
-	}
-	req := message.Request{
-		Command:    IsServiceRunning,
-		Parameters: params,
-	}
-
-	reply, err := c.socket.Request(&req)
-	if err != nil {
-		return false, fmt.Errorf("socket.Request('%s'): %w", IsServiceRunning, err)
-	}
-	if !reply.IsOK() {
-		return false, fmt.Errorf("reply.Message: %s", reply.ErrorMessage())
-	}
-
-	running, err := reply.ReplyParameters().BoolValue("running")
-	if err != nil {
-		return false, fmt.Errorf("reply.Parameters.BoolValue('running'): %w", err)
-	}
-	return running, nil
 }
 
 // StopService stops the running dependency service.
@@ -476,11 +413,11 @@ func (c *Client) StopService(mushroomURL string) error {
 		return fmt.Errorf("dep manager not initialized")
 	}
 
-	if c.socket == nil {
+	if c.Socket == nil {
 		return fmt.Errorf("dep manager socket was closed")
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Submit('%s'): %w", StopService, err)
 	}
@@ -508,7 +445,7 @@ func (c *Client) ValidateProtocolOrder(mushroomURL string) error {
 			Set("service", mushroomURL),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Request('%s'): %w", ValidateProtocolOrder, err)
 	}
@@ -527,7 +464,7 @@ func (c *Client) ValidateInprocServiceManagers() error {
 		Parameters: datatype.New(),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Request('%s'): %w", ValidateInprocServiceManagers, err)
 	}
@@ -547,7 +484,7 @@ func (c *Client) InprocessDepNumber(mushroomURL string) (int, error) {
 			Set("service", mushroomURL),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return 0, fmt.Errorf("socket.Request('%s'): %w", InprocessDepNumber, err)
 	}
@@ -571,7 +508,7 @@ func (c *Client) Snapshot() (string, error) {
 		Parameters: datatype.New(),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return "", fmt.Errorf("socket.Request('%s'): %w", Snapshot, err)
 	}
@@ -596,7 +533,7 @@ func (c *Client) Rollback(snapshot string) error {
 			Set("snapshot", snapshot),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Request('%s'): %w", Rollback, err)
 	}
@@ -615,7 +552,7 @@ func (c *Client) Reload() error {
 		Parameters: datatype.New(),
 	}
 
-	reply, err := c.socket.Request(&req)
+	reply, err := c.Request(&req)
 	if err != nil {
 		return fmt.Errorf("socket.Request('%s'): %w", Reload, err)
 	}

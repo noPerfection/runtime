@@ -108,7 +108,7 @@ func TestHandlerTopologyInterfaceBeforeStart(t *testing.T) {
 			config.ProxyHandler{
 				IndependentHandler: config.IndependentHandler{
 					Type:     config.ReplierType,
-					Category: ServiceManagerCategory,
+					Category: config.ServiceManagerCategory,
 					Endpoint: message.NewEndpoint("pre-start-manager", 6100),
 				},
 			},
@@ -264,8 +264,6 @@ func (test *TestHandlerSuite) TestTopologyInterfaceAfterStartBlocked() {
 	s().Error(test.depHandler.SetService(config.Service{Name: "blocked", Type: config.ProxyType}))
 	s().Error(test.depHandler.RemoveService("blocked"))
 	_, err := test.depHandler.StartService("blocked")
-	s().Error(err)
-	_, err = test.depHandler.IsServiceRunning("blocked")
 	s().Error(err)
 	s().Error(test.depHandler.StopService("blocked"))
 }
