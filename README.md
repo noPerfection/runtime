@@ -1,15 +1,13 @@
 # Topology
 
-`topology` provides a dependency topology manager for noPerfection microservices.
-With `topology`, noPerfection services can manage their dependencies.
+`topology` is a noPerfection module that provides noPerfection microservice to manage their dependencies.
 
-Topology is an in-process (`inproc`) handler: it lives in the same process as
-the service, but runs asynchronously on a different goroutine/thread so it does
-not block the service's own code. The handler and client use a predefined
-endpoint at `inproc://<TopologyHandlerCategory>`, where `TopologyHandlerCategory`
-is the package constant used to build the endpoint internally.
+The `config` directory is a sub module defining topology configuration. Now it's simply a shared `json` file.
+
+> License? **Public Domain**
 
 ## Install
+
 Requires zmq library C library. Go code running or building must be then done using C enabling.
 
 ```sh
@@ -17,6 +15,7 @@ go get github.com/noPerfection/topology@latest
 ```
 
 ## Tutorial
+
 First we need to start the topology handler
 
 ```go
@@ -33,6 +32,7 @@ if err := handler.Start(); err != nil {
 }
 
 ```
+
 That's it. Topology is running in-process.
 Second, we need to interact with it from the code:
 

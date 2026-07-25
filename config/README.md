@@ -2,6 +2,10 @@
 
 This package defines the static JSON configuration model for a noPerfection topology. It contains Go types, JSON marshal/unmarshal helpers, `Load`, `NoPerfection.Save`, and validation. It does not run a topology server or client.
 
+Based on [ahmetson/mushroom](https://github.com/ahmetson/mushroom) . To manage configuration is converted into mushroom URLs.
+
+> License? **Public Domain**
+
 ## Topology Model
 
 The config describes a topology as a graph.
@@ -55,10 +59,12 @@ See [examples/app-proxy-chain.json](examples/app-proxy-chain.json) for a complet
 
 `Load` accepts either a **symbolic file path** or a **Mushroom link URL**.
 
-| Form | Example | Mycelium link |
-|------|---------|---------------|
-| Symbolic path | `noPerfection.json`, `/etc/app/noPerfection.json` | `pkg:json/.#noPerfection.json` |
-| Mushroom link | `pkg:json/tmp#app.json` | used as-is (normalized via `Hypha`) |
+
+| Form          | Example                                           | Mycelium link                       |
+| ------------- | ------------------------------------------------- | ----------------------------------- |
+| Symbolic path | `noPerfection.json`, `/etc/app/noPerfection.json` | `pkg:json/.#noPerfection.json`      |
+| Mushroom link | `pkg:json/tmp#app.json`                           | used as-is (normalized via `Hypha`) |
+
 
 Mushroom link requirements:
 
@@ -209,11 +215,13 @@ A `Service` is the unit that gets registered, looked up, started, and referenced
 
 The `type` describes the role the service plays in routing:
 
-| `type` | Role |
-|--------|------|
-| `Independent` | A normal service that handles its own traffic. |
-| `Proxy` | A service that forwards commands to inline outbound services. |
-| `Extension` | A service used as an extension target in dependency routing. |
+
+| `type`        | Role                                                          |
+| ------------- | ------------------------------------------------------------- |
+| `Independent` | A normal service that handles its own traffic.                |
+| `Proxy`       | A service that forwards commands to inline outbound services. |
+| `Extension`   | A service used as an extension target in dependency routing.  |
+
 
 Bootstrap fields live on the service, not on each handler, because starting or loading code is a property of the service process/module:
 
@@ -252,10 +260,12 @@ Dependencies are declared separately from services so callers describe intent, w
 
 `DepService` is used in two scopes. In `handler-deps`, `name` is a handler category on the service. In `command-deps`, `name` is a command handled by the parent handler.
 
-| Declared in | `name` means |
-|-------------|--------------|
-| `handler-deps` | handler category on this service |
+
+| Declared in    | `name` means                               |
+| -------------- | ------------------------------------------ |
+| `handler-deps` | handler category on this service           |
 | `command-deps` | command name handled by the parent handler |
+
 
 Each dependency lists proxy targets, extension targets, or both. Proxies are for routed calls through another service. Extensions are for extension-style targets.
 
