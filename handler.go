@@ -238,7 +238,7 @@ func (h *Handler) GetFacade(mushroomURL string, command ...string) (string, erro
 	return h.getFacade(mushroomURL, command...)
 }
 
-// GetLink normalizes mushroomURL into a verified full Mushroom link before start.
+// GetLink normalizes mushroomURL into a full Mushroom link before start.
 func (h *Handler) GetLink(mushroomURL string) (string, error) {
 	h.mu.Lock()
 	defer h.mu.Unlock()
@@ -754,7 +754,7 @@ func (h *Handler) onGetFacade(req message.RequestInterface) message.ReplyInterfa
 	return req.Ok(datatype.New().Set("facade", facade))
 }
 
-// onGetLink returns a verified full Mushroom link for mushroomURL.
+// onGetLink returns a normalized full Mushroom link for mushroomURL.
 // Requires 'link' — a symbol, link, or dereference Mushroom URL.
 func (h *Handler) onGetLink(req message.RequestInterface) message.ReplyInterface {
 	mushroomURL, err := req.RouteParameters().StringValue("link")

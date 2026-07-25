@@ -163,7 +163,7 @@ func (c *Client) GetFacade(mushroomURL string, command ...string) (string, error
 	return facade, nil
 }
 
-// GetLink normalizes mushroomURL into a verified full Mushroom link.
+// GetLink normalizes mushroomURL into a full Mushroom link.
 //
 // Symbol:
 //

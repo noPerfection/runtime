@@ -772,10 +772,11 @@ func (a NoPerfection) Save() error {
 	return nil
 }
 
-// GetServiceLink normalizes mushroomURL into a verified full Mushroom link.
+// GetServiceLink normalizes mushroomURL into a full Mushroom link.
 // Plain service names expand to services[name:<name>]. Dereference URLs are
 // converted to links. Resource paths and additional properties (e.g. category)
 // are preserved; wildcards ($) and lambdas are resolved against the loaded mycelium.
+// The resource is not verified to exist in the substrate.
 func (a *NoPerfection) GetServiceLink(mushroomURL string) (string, error) {
 	if a == nil {
 		return "", fmt.Errorf("app struct is nil")
@@ -789,12 +790,7 @@ func (a *NoPerfection) GetServiceLink(mushroomURL string) (string, error) {
 		return "", err
 	}
 
-	link, err := a.mycelium.Link(hypha.AsLink().String())
-	if err != nil {
-		return "", fmt.Errorf("GetServiceLink(%q): %w", mushroomURL, err)
-	}
-
-	return link, nil
+	return hypha.AsLink().String(), nil
 }
 
 // GetService resolves a Mushroom URL and returns a single service.

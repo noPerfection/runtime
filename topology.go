@@ -105,7 +105,7 @@ type TopologyInterface interface {
 	//	link, err := tp.GetFacade("*pkg:$?var=services[name:main]&category=main", "authorize")
 	GetFacade(mushroomURL string, command ...string) (string, error)
 
-	// GetLink normalizes mushroomURL into a verified full Mushroom link.
+	// GetLink normalizes mushroomURL into a full Mushroom link.
 	// Dereference URLs are converted to links; plain service names are expanded.
 	// Resource paths and additional properties are preserved.
 	//
