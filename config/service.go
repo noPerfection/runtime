@@ -138,6 +138,9 @@ func decodeHandler(value any) (Handler, error) {
 	case ProxyHandler:
 		return handler, nil
 	case ExtensionHandler:
+		if handler.Inbounds == nil {
+			handler.Inbounds = []string{}
+		}
 		return handler, nil
 	case map[string]any:
 		return handlerFromMap(handler)
@@ -160,6 +163,9 @@ func handlerFromMap(raw map[string]any) (Handler, error) {
 		var handler ExtensionHandler
 		if err := mapInto(raw, &handler); err != nil {
 			return nil, fmt.Errorf("extension handler: %w", err)
+		}
+		if handler.Inbounds == nil {
+			handler.Inbounds = []string{}
 		}
 		return handler, nil
 	}

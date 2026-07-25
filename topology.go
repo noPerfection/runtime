@@ -263,8 +263,9 @@ func serviceQueryURL(name, parent string) string {
 //
 //---------------------------------------------------------------------
 
-// StopService stops a locally spawned dependency process, waiting for it to exit.
-func (tp *Topology) StopService(service config.Service) error {
+// ClearStoppedService waits for a dependency process to exit after a close signal
+// and drops it from local tracking. It does not send SIGTERM or kill the process.
+func (tp *Topology) ClearStoppedService(service config.Service) error {
 	if tp == nil {
 		return fmt.Errorf("nil topology")
 	}
@@ -273,7 +274,7 @@ func (tp *Topology) StopService(service config.Service) error {
 		return fmt.Errorf("service name is empty")
 	}
 	if service.Type == config.IndependentType {
-		return fmt.Errorf("service('%s') is independent service, impossible to stop since you are now using it", serviceName)
+		return fmt.Errorf("service('%s') is independent service, impossible to clear since you are now using it", serviceName)
 	}
 
 	process := tp.processForService(serviceName)
@@ -281,8 +282,12 @@ func (tp *Topology) StopService(service config.Service) error {
 		return nil
 	}
 
-	if err := tp.stopLocalProcess(process); err != nil {
-		return fmt.Errorf("service('%s') is still running after stop: %w", serviceName, err)
+	waitTimeout := tp.timeout * 3
+	if waitTimeout <= 0 {
+		waitTimeout = DefaultTimeout * 3
+	}
+	if err := tp.waitForProcess(process, waitTimeout); err != nil {
+		return fmt.Errorf("service('%s') is still running after close signal: %w", serviceName, err)
 	}
 	return nil
 }
@@ -494,7 +499,6 @@ func (tp *Topology) startServiceConfig(serviceConfig config.Service) (string, er
 
 // The wait is invoked if the spawned dependency stops.
 // The dependencies are running asynchronously.
-// In order to call this function, you must use the Topology.StopService() method.
 // If the Close signal was sent to the spawned child, then
 // this method will be called automatically by the operating system.
 func (tp *Topology) wait(id string) {

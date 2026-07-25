@@ -90,3 +90,25 @@ func TestServiceJSONExtensionHandlers(t *testing.T) {
 		t.Fatalf("Inbound url = %q, want api service link", extensionHandler.Inbounds[0])
 	}
 }
+
+func TestExtensionHandlerNullInboundsUnmarshal(t *testing.T) {
+	handler, err := handlerFromMap(map[string]any{
+		"type":     ReplierType,
+		"category": "main",
+		"endpoint": map[string]any{
+			"id":   "ai",
+			"port": float64(0),
+		},
+		"inbounds": nil,
+	})
+	if err != nil {
+		t.Fatalf("handlerFromMap: %v", err)
+	}
+	extensionHandler, ok := handler.AsExtensionHandler()
+	if !ok {
+		t.Fatal("handler is not an ExtensionHandler")
+	}
+	if extensionHandler.Inbounds == nil {
+		t.Fatal("Inbounds = nil, want empty slice")
+	}
+}

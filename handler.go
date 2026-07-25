@@ -198,7 +198,7 @@ func (h *Handler) StopService(mushroomURL string) error {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	return h.topology.StopService(service)
+	return h.topology.ClearStoppedService(service)
 }
 
 // Service returns a service configuration before the topology handler is started.
@@ -691,9 +691,9 @@ func (h *Handler) onStopService(req message.RequestInterface) message.ReplyInter
 		return req.Fail(fmt.Sprintf("h.service(%q): %v", mushroomURL, err))
 	}
 
-	err = h.topology.StopService(service)
+	err = h.topology.ClearStoppedService(service)
 	if err != nil {
-		return req.Fail(fmt.Sprintf("h.topology.StopService: %v", err))
+		return req.Fail(fmt.Sprintf("h.topology.ClearStoppedService: %v", err))
 	}
 
 	return req.Ok(datatype.New())
@@ -985,9 +985,8 @@ func (h *Handler) isTopologyAlreadyRunning() bool {
 	}
 	defer client.Close()
 
-	client.Timeout(50 * time.Millisecond)
-	client.Attempt(3)
-	fmt.Println("todo: isTopologyAlreadyRunning attempts 3 but make it 1 in noPerfection/topology/handler.go ")
+	client.Timeout(100 * time.Millisecond)
+	client.Attempt(1)
 	running, err := client.IsRunning()
 	return err == nil && running
 }

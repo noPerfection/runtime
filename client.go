@@ -36,7 +36,6 @@ func (c *Client) IsRunning() (bool, error) {
 		Parameters: datatype.New(),
 	}
 
-	fmt.Println("> is running request for is-running")
 	reply, err := c.Request(&req)
 	if err != nil {
 		return false, fmt.Errorf("socket.Request('%s'): %w", IsRunning, err)
@@ -393,11 +392,11 @@ func (c *Client) StartService(mushroomURL string) (string, error) {
 	return id, nil
 }
 
-// StopService stops the running dependency service.
+// ClearStoppedService drops a dependency from local process tracking after close.
 //
 // Symbol:
 //
-//	err := client.StopService("worker")
+//	err := client.ClearStoppedService("worker")
 //
 // Dereference Mushroom URL:
 //
