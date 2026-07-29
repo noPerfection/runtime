@@ -13,7 +13,7 @@ func newHandler(appConfig *config.NoPerfection) (*Handler, error) {
 		return nil, fmt.Errorf("app config is nil, call config.Load() first")
 	}
 
-	handler := protocolHandler.NewReplier()
+	handler := protocolHandler.NewBasicReplier()
 
 	logger, err := log.New(TopologyHandlerCategory, true)
 	if err != nil {
