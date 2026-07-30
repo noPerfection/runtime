@@ -1,6 +1,6 @@
 module github.com/noPerfection/topology
 
-go 1.22
+go 1.25.0
 
 require (
 	github.com/ahmetson/mushroom v1.0.0
@@ -11,7 +11,7 @@ require (
 	github.com/noPerfection/protocol/handler v0.1.1
 	github.com/noPerfection/protocol/message v0.1.1
 	github.com/noPerfection/topology/config v0.0.0
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 )
 
 replace github.com/noPerfection/topology/config => ./config
@@ -35,6 +35,6 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rivo/uniseg v0.4.4 // indirect
 	github.com/xrash/smetrics v0.0.0-20201216005158-039620a65673 // indirect
-	golang.org/x/sys v0.12.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
