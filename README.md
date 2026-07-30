@@ -208,13 +208,6 @@ Independent services are special: there can be only one independent service in t
 
 ## Local development
 
-This repo keeps two module files:
-
-- `go.mod` — remote/CI, fetches published modules from GitHub (no `replace`); pins released versions such as `github.com/ahmetson/mushroom v1.0.0` and `github.com/noPerfection/datatype v0.1.0`
-- `go.local.mod` — local monorepo, `replace`s sibling repos (`../datatype`, `../protocol/...`, `./config`, `../../ahmetson/mushroom`, etc.); `require` versions are placeholders (`v0.0.0`) because `replace` wins
-
-The `config` submodule has the same pair: `config/go.mod` and `config/go.local.mod`.
-
 For local testing, building, and running, prefix each command with `GOFLAGS=-modfile=go.local.mod`:
 
 ```sh

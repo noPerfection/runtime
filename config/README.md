@@ -301,3 +301,26 @@ Endpoint `port` defaults to `0` when omitted.
 Validation checks service names, service types, handler types, handler categories, endpoint ids, dependency target shape, inline service definitions, and ref existence. If a ref includes a handler category, the referenced service must contain that category.
 
 For `ProxyHandler`, validation also checks outbound targets and verifies that `forward` entries refer to declared routes and outbounds.
+
+## Local development
+
+For local testing, building, and running, prefix each command with `GOFLAGS=-modfile=go.local.mod`:
+
+```sh
+GOFLAGS=-modfile=go.local.mod go test ./...
+GOFLAGS=-modfile=go.local.mod go build ./...
+GOFLAGS=-modfile=go.local.mod go run ./cmd/your-app
+cd config && GOFLAGS=-modfile=go.local.mod go test ./...
+```
+
+`make test` and `make build` already use `go.local.mod`. Use `make test-remote` or plain `go test ./...` without `GOFLAGS` for the remote module file.
+
+### Version
+
+For versioning sub module use the semantics:
+
+```bash
+git tag -a config/v0.0.1 -m "Summary"
+git push origin config/v0.0.1
+```
+

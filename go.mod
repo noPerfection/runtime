@@ -6,13 +6,15 @@ require (
 	github.com/ahmetson/mushroom v1.0.0
 	github.com/noPerfection/datatype v0.1.0
 	github.com/noPerfection/log v0.1.0
-	github.com/noPerfection/os v0.1.0
-	github.com/noPerfection/protocol/client v0.1.0
-	github.com/noPerfection/protocol/handler v0.1.0
-	github.com/noPerfection/protocol/message v0.1.0
-	github.com/noPerfection/topology/config v0.1.0
+	github.com/noPerfection/os v0.1.1
+	github.com/noPerfection/protocol/client v0.1.1
+	github.com/noPerfection/protocol/handler v0.1.1
+	github.com/noPerfection/protocol/message v0.1.1
+	github.com/noPerfection/topology/config v0.0.0
 	github.com/stretchr/testify v1.8.4
 )
+
+replace github.com/noPerfection/topology/config => ./config
 
 require (
 	github.com/aymanbagabas/go-osc52/v2 v2.0.1 // indirect

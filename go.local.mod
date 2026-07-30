@@ -5,11 +5,11 @@ go 1.22
 require (
 	github.com/ahmetson/mushroom v1.0.0
 	github.com/noPerfection/datatype v1.0.0
-	github.com/noPerfection/log v0.0.0
-	github.com/noPerfection/os v0.0.0
-	github.com/noPerfection/protocol/client v0.0.0
-	github.com/noPerfection/protocol/handler v0.0.0
-	github.com/noPerfection/protocol/message v0.1.0
+	github.com/noPerfection/log v0.1.0
+	github.com/noPerfection/os v0.1.1
+	github.com/noPerfection/protocol/client v0.1.1
+	github.com/noPerfection/protocol/handler v0.1.1
+	github.com/noPerfection/protocol/message v0.1.1
 	github.com/noPerfection/topology/config v0.0.0
 	github.com/stretchr/testify v1.8.4
 )
