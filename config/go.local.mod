@@ -4,7 +4,7 @@ go 1.22
 
 require (
 	github.com/ahmetson/mushroom v0.0.0
-	github.com/noPerfection/datatype v0.0.0
+	github.com/noPerfection/datatype v0.1.0
 	github.com/noPerfection/protocol/message v0.0.0
 )
 

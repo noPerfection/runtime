@@ -487,9 +487,10 @@ func serviceParameterHasIpcHandler(service Service, category string) bool {
 }
 
 // ValidateService validates the service metadata and endpoint bootstrap settings.
+// Returns message.ErrInvalidArg if the service name is empty.
 func (s *Service) Validate() error {
 	if len(s.Name) == 0 {
-		return fmt.Errorf("service name is empty")
+		return fmt.Errorf("service name is empty: %w", message.ErrInvalidArg)
 	}
 	if err := ValidateServiceType(s.Type); err != nil {
 		return fmt.Errorf("identity.ValidateServiceType: %v", err)
@@ -668,9 +669,11 @@ func (s Service) Facade(category string, command ...string) (mushroom.Hypha, err
 
 // HandlerByCategory returns the handler config by the handler category.
 // If the handler doesn't exist, then it returns an error.
+// Returns message.ErrNotFound if the handler doesn't exist.
+// Returns message.ErrInvalidArg if the category is empty.
 func (s *Service) HandlerByCategory(category string) (Handler, error) {
 	if len(category) == 0 {
-		return nil, fmt.Errorf("category argument is empty")
+		return nil, fmt.Errorf("category argument is empty: %w", message.ErrInvalidArg)
 	}
 
 	i := slices.IndexFunc(s.Handlers, func(e Handler) bool {
@@ -681,7 +684,7 @@ func (s *Service) HandlerByCategory(category string) (Handler, error) {
 		return ok && handler.Category == category
 	})
 	if i == -1 {
-		return nil, fmt.Errorf("handler of '%s' category not found", category)
+		return nil, fmt.Errorf("handler of '%s' category not found: %w", category, message.ErrNotFound)
 	}
 
 	return s.Handlers[i], nil
@@ -690,10 +693,10 @@ func (s *Service) HandlerByCategory(category string) (Handler, error) {
 // GetHandler returns a handler by its endpoint.
 func (s *Service) GetHandler(endpoint message.Endpoint) (Handler, error) {
 	if s == nil {
-		return nil, fmt.Errorf("service struct is nil")
+		return nil, fmt.Errorf("service struct is nil: %w", message.ErrNilStruct)
 	}
 	if len(endpoint.Id) == 0 && !endpoint.IsRemote() {
-		return nil, fmt.Errorf("endpoint id argument is empty")
+		return nil, fmt.Errorf("endpoint id argument is empty: %w", message.ErrInvalidArg)
 	}
 
 	i := slices.IndexFunc(s.Handlers, func(h Handler) bool {
@@ -704,7 +707,7 @@ func (s *Service) GetHandler(endpoint message.Endpoint) (Handler, error) {
 		return ok && handler.Endpoint.Id == endpoint.Id && handler.Endpoint.Port == endpoint.Port
 	})
 	if i == -1 {
-		return nil, fmt.Errorf("handler with endpoint '%s:%d' not found", endpoint.Id, endpoint.Port)
+		return nil, fmt.Errorf("handler with endpoint '%s:%d' not found: %w", endpoint.Id, endpoint.Port, message.ErrNotFound)
 	}
 
 	return s.Handlers[i], nil
@@ -758,12 +761,15 @@ func (s *Service) SetHandler(handler Handler, overwriteByCategory ...bool) {
 }
 
 // RemoveHandler removes a handler by its endpoint.
+// Returns message.ErrNilStruct if the service struct is nil.
+// Returns message.ErrInvalidArg if the endpoint id is empty.
+// Returns message.ErrNotFound if the handler with the endpoint is not found.
 func (s *Service) RemoveHandler(endpoint message.Endpoint) error {
 	if s == nil {
-		return fmt.Errorf("service struct is nil")
+		return fmt.Errorf("service struct is nil: %w", message.ErrNilStruct)
 	}
 	if len(endpoint.Id) == 0 && !endpoint.IsRemote() {
-		return fmt.Errorf("endpoint id argument is empty")
+		return fmt.Errorf("endpoint id argument is empty: %w", message.ErrInvalidArg)
 	}
 
 	i := slices.IndexFunc(s.Handlers, func(h Handler) bool {
@@ -774,7 +780,7 @@ func (s *Service) RemoveHandler(endpoint message.Endpoint) error {
 		return ok && handler.Endpoint.Id == endpoint.Id && handler.Endpoint.Port == endpoint.Port
 	})
 	if i == -1 {
-		return fmt.Errorf("handler with endpoint '%s:%d' not found", endpoint.Id, endpoint.Port)
+		return fmt.Errorf("handler with endpoint '%s:%d' not found: %w", endpoint.Id, endpoint.Port, message.ErrNotFound)
 	}
 
 	s.Handlers = slices.Delete(s.Handlers, i, i+1)
@@ -782,22 +788,25 @@ func (s *Service) RemoveHandler(endpoint message.Endpoint) error {
 }
 
 // ValidateDepService checks that a dependency declares a name and routing targets.
+// Returns message.ErrInvalidArg if the name is empty.
+// Returns message.ErrInvalidArg if the proxies or extensions are empty.
+// Returns message.ErrInvalidArg if a proxy or extension is values are empty.
 func ValidateDepService(dep DepService) error {
 	if len(dep.Name) == 0 {
-		return fmt.Errorf("name argument is empty")
+		return fmt.Errorf("name argument is empty: %w", message.ErrInvalidArg)
 	}
 	if len(dep.Proxies) == 0 && len(dep.Extensions) == 0 {
-		return fmt.Errorf("dep service('%s') must declare proxies or extensions", dep.Name)
+		return fmt.Errorf("dep service('%s') must declare proxies or extensions: %w", dep.Name, message.ErrInvalidArg)
 	}
 
 	for i, link := range dep.Proxies {
 		if link == "" {
-			return fmt.Errorf("proxies[%d]: link is empty", i)
+			return fmt.Errorf("proxies[%d]: empty: %w", i, message.ErrInvalidArg)
 		}
 	}
 	for i, link := range dep.Extensions {
 		if link == "" {
-			return fmt.Errorf("extensions[%d]: link is empty", i)
+			return fmt.Errorf("extensions[%d]: empty: %w", i, message.ErrInvalidArg)
 		}
 	}
 

@@ -2,6 +2,7 @@ package config
 
 import (
 	"encoding/json"
+	"errors"
 	"testing"
 
 	"github.com/noPerfection/datatype"
@@ -823,9 +824,13 @@ func TestServiceHandlerByCategory(t *testing.T) {
 
 	if _, err := serviceConfig.HandlerByCategory(""); err == nil {
 		t.Fatal("HandlerByCategory with empty category returned nil error")
+	} else if !errors.Is(err, message.ErrInvalidArg) {
+		t.Fatalf("HandlerByCategory with empty category: want ErrInvalidArg, got %v", err)
 	}
 	if _, err := serviceConfig.HandlerByCategory("missing"); err == nil {
 		t.Fatal("HandlerByCategory with missing category returned nil error")
+	} else if !errors.Is(err, message.ErrNotFound) {
+		t.Fatalf("HandlerByCategory with missing category: want ErrNotFound, got %v", err)
 	}
 
 	foundHandler, err := serviceConfig.HandlerByCategory("public")
