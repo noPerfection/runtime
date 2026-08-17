@@ -83,6 +83,7 @@ func NewHandler(configMushroomURL string, substrates ...mushroom.Substrate) (*Ha
 	if err != nil {
 		return nil, fmt.Errorf("handler.SetLogger: %w", err)
 	}
+	handler.SetMushroomURL(TopologyHandlerMushroomURL)
 
 	return &Handler{
 		config:   &appConfig,
@@ -972,7 +973,7 @@ func (h *Handler) Start() error {
 	}
 
 	if err := h.handler.Start(); err != nil {
-		return err
+		return fmt.Errorf("h.handler.Start(): %w", err)
 	}
 	h.started = true
 	return nil
