@@ -7,9 +7,9 @@ require (
 	github.com/noPerfection/datatype v0.1.0
 	github.com/noPerfection/log v0.1.0
 	github.com/noPerfection/os v0.1.1
-	github.com/noPerfection/protocol/client v0.1.1
-	github.com/noPerfection/protocol/handler v0.1.1
-	github.com/noPerfection/protocol/message v0.1.1
+	github.com/noPerfection/protocol/client v0.1.2
+	github.com/noPerfection/protocol/handler v0.1.3
+	github.com/noPerfection/protocol/message v0.1.2
 	github.com/noPerfection/topology/config v0.0.0
 	github.com/stretchr/testify v1.11.1
 )
@@ -22,7 +22,6 @@ require (
 	github.com/charmbracelet/log v0.2.4 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-logfmt/logfmt v0.6.0 // indirect
-	github.com/kr/pretty v0.3.1 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
